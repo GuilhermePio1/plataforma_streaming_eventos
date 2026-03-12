@@ -1,0 +1,44 @@
+[versions]
+springBoot = "4.0.3"
+springDependencyManagement = "1.1.7" # Adicionado para gestão de transitivas
+java = "21"
+kafka = "4.2.0"
+springCloud = "2025.1.0"
+resilience4j = "2.3.0"
+opentelemetry = "1.60.1"
+testcontainers = "2.0.3"
+
+[libraries]
+# Spring Boot Base
+spring-boot-starter-web = { group = "org.springframework.boot", name = "spring-boot-starter-web", version.ref = "springBoot" }
+spring-boot-starter-actuator = { group = "org.springframework.boot", name = "spring-boot-starter-actuator", version.ref = "springBoot" }
+spring-boot-starter-validation = { group = "org.springframework.boot", name = "spring-boot-starter-validation", version.ref = "springBoot" } # Bean Validation para Ingestion
+
+# Banco de Dados e Cache (Persistence e Query API)
+spring-boot-starter-data-jpa = { group = "org.springframework.boot", name = "spring-boot-starter-data-jpa", version.ref = "springBoot" }
+spring-boot-starter-data-redis = { group = "org.springframework.boot", name = "spring-boot-starter-data-redis", version.ref = "springBoot" }
+postgresql = { group = "org.postgresql", name = "postgresql" } # Driver do PostgreSQL
+
+# Kafka & Stream Processing
+spring-kafka = { group = "org.springframework.kafka", name = "spring-kafka" }
+kafka-streams = { group = "org.apache.kafka", name = "kafka-streams", version.ref = "kafka" }
+
+# Resiliência
+resilience4j-circuitbreaker = { group = "io.github.resilience4j", name = "resilience4j-circuitbreaker", version.ref = "resilience4j" }
+
+# Observabilidade (OpenTelemetry)
+opentelemetry-api = { group = "io.opentelemetry", name = "opentelemetry-api", version.ref = "opentelemetry" }
+
+# Testcontainers (Para os testes de integração)
+testcontainers-core = { group = "org.testcontainers", name = "testcontainers", version.ref = "testcontainers" }
+testcontainers-kafka = { group = "org.testcontainers", name = "kafka", version.ref = "testcontainers" }
+testcontainers-postgresql = { group = "org.testcontainers", name = "postgresql", version.ref = "testcontainers" }
+
+[bundles]
+# Agrupamentos lógicos para facilitar a importação nos microsserviços
+test-infra = ["testcontainers-core", "testcontainers-kafka", "testcontainers-postgresql"]
+
+[plugins]
+# Declaração centralizada dos plugins
+spring-boot = { id = "org.springframework.boot", version.ref = "springBoot" }
+spring-dependency-management = { id = "io.spring.dependency-management", version.ref = "springDependencyManagement" }

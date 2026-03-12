@@ -1,0 +1,54 @@
+# =========================
+# Gradle (Build e Cache)
+# =========================
+.gradle/
+**/build/
+!gradle/wrapper/gradle-wrapper.jar
+
+# =========================
+# IDEs e Editores
+# =========================
+.idea/
+*.iml
+.vscode/
+.project
+.classpath
+.settings/
+out/
+bin/
+
+# =========================
+# OS e Sistema
+# =========================
+.DS_Store
+Thumbs.db
+*.swp
+
+# =========================
+# Logs e Temporários
+# =========================
+*.log
+logs/
+hs_err_pid*
+
+# =========================
+# Segurança e Credenciais
+# =========================
+.env
+.env.*
+*.env
+application-local.yml
+application-local.properties
+secrets/
+
+# =========================
+# Arquitetura e Infraestrutura
+# =========================
+# Volumes locais do Docker Compose (PostgreSQL, Kafka, Redis)
+.docker-data/
+docker/data/
+
+# State Store local do Kafka Streams / RocksDB
+/tmp/kafka-streams/
+kafka-streams/
+state-store/
