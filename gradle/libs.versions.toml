@@ -34,6 +34,8 @@ testcontainers-core = { group = "org.testcontainers", name = "testcontainers", v
 testcontainers-kafka = { group = "org.testcontainers", name = "kafka", version.ref = "testcontainers" }
 testcontainers-postgresql = { group = "org.testcontainers", name = "postgresql", version.ref = "testcontainers" }
 
+lombok = { group = "org.projectlombok", name = "lombok" }
+
 [bundles]
 # Agrupamentos lógicos para facilitar a importação nos microsserviços
 test-infra = ["testcontainers-core", "testcontainers-kafka", "testcontainers-postgresql"]

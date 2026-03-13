@@ -13,6 +13,7 @@ allprojects {
 }
 
 val projetoJavaVersion = libs.versions.java.get()
+val lombokDependency = libs.lombok
 
 subprojects {
     apply(plugin = "java")
@@ -35,5 +36,8 @@ subprojects {
     dependencies {
         add("testImplementation", "org.springframework.boot:spring-boot-starter-test")
         add("testRuntimeOnly", "org.junit.platform:junit-platform-launcher")
+
+        add("compileOnly", lombokDependency)
+        add("annotationProcessor", lombokDependency)
     }
 }
