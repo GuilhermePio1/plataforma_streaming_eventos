@@ -12,10 +12,15 @@ public class EventValidationException extends EventProcessingException {
     private final List<String> violations;
 
     public EventValidationException(UUID eventId, List<String> violations) {
-        // Passamos 'false' para isRetryable, indicando que o erro deve ir direto para a DLQ
-        super(eventId, "Evento falhou na validação: " + String.join(", ", violations), false);
+        // Tratamento inline: se for nulo ou vazio, coloca uma mensagem padrão.
+        // Se tiver conteúdo, faz o String.join normalmente.
+        super(
+                eventId,
+                "Evento falhou na validação: " + (violations == null || violations.isEmpty() ? "Nenhum detalhe informado" : String.join("; ", violations)),
+                false // isRetryable = false
+        );
 
-        // Cópia defensiva
+        // Cópia defensiva segura para o atributo da classe
         this.violations = (violations == null || violations.isEmpty())
                 ? List.of()
                 : List.copyOf(violations);

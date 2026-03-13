@@ -46,7 +46,7 @@ public record DlqEvent(
         if (retryCount < 0) throw new IllegalArgumentException("O número de tentativas não pode ser negativo");
 
         // Garante que o evento original não sofra mutação após encapsulado
-        originalEvent = originalEvent().isEmpty()
+        originalEvent = (originalEvent == null || originalEvent.isEmpty())
                 ? Map.of()
                 : Map.copyOf(originalEvent);
     }
