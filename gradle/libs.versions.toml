@@ -25,6 +25,7 @@ kafka-streams = { group = "org.apache.kafka", name = "kafka-streams", version.re
 
 # Resiliência
 resilience4j-circuitbreaker = { group = "io.github.resilience4j", name = "resilience4j-circuitbreaker", version.ref = "resilience4j" }
+resilience4j-spring-boot = { group = "io.github.resilience4j", name = "resilience4j-spring-boot3", version.ref = "resilience4j" }
 
 # Observabilidade (OpenTelemetry)
 opentelemetry-api = { group = "io.opentelemetry", name = "opentelemetry-api", version.ref = "opentelemetry" }

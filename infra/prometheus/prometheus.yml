@@ -1,0 +1,29 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: 'ingestion-service'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['ingestion-service:8081']
+
+  - job_name: 'stream-processing-service'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['stream-processing-service:8082']
+
+  - job_name: 'persistence-service'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['persistence-service:8083']
+
+  - job_name: 'notification-service'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['notification-service:8084']
+
+  - job_name: 'query-service'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['query-service:8085']
