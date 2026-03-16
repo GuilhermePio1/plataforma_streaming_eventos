@@ -25,14 +25,19 @@ kafka-streams = { group = "org.apache.kafka", name = "kafka-streams", version.re
 
 # Resiliência
 resilience4j-circuitbreaker = { group = "io.github.resilience4j", name = "resilience4j-circuitbreaker", version.ref = "resilience4j" }
+resilience4j-spring-boot = { group = "io.github.resilience4j", name = "resilience4j-spring-boot3", version.ref = "resilience4j" }
 
 # Observabilidade (OpenTelemetry)
 opentelemetry-api = { group = "io.opentelemetry", name = "opentelemetry-api", version.ref = "opentelemetry" }
 
 # Testcontainers (Para os testes de integração)
 testcontainers-core = { group = "org.testcontainers", name = "testcontainers", version.ref = "testcontainers" }
-testcontainers-kafka = { group = "org.testcontainers", name = "kafka", version.ref = "testcontainers" }
-testcontainers-postgresql = { group = "org.testcontainers", name = "postgresql", version.ref = "testcontainers" }
+testcontainers-kafka = { group = "org.testcontainers", name = "testcontainers-kafka", version.ref = "testcontainers" }
+testcontainers-postgresql = { group = "org.testcontainers", name = "testcontainers-postgresql", version.ref = "testcontainers" }
+
+# Utilitários de Teste do Kafka
+spring-kafka-test = { group = "org.springframework.kafka", name = "spring-kafka-test" }
+kafka-streams-test-utils = { group = "org.apache.kafka", name = "kafka-streams-test-utils", version.ref = "kafka" }
 
 lombok = { group = "org.projectlombok", name = "lombok" }
 

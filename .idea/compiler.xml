@@ -7,9 +7,33 @@
         <processorPath useClasspath="false">
           <entry name="$USER_HOME$/.gradle/caches/modules-2/files-2.1/org.projectlombok/lombok/1.18.42/8365263844ebb62398e0dc33057ba10ba472d3b8/lombok-1.18.42.jar" />
         </processorPath>
+        <module name="plataforma-streaming-eventos.query-service.main" />
+        <module name="plataforma-streaming-eventos.notification-service.main" />
         <module name="plataforma-streaming-eventos.event-schemas.main" />
+        <module name="plataforma-streaming-eventos.persistence-service.main" />
+        <module name="plataforma-streaming-eventos.ingestion-service.main" />
+        <module name="plataforma-streaming-eventos.stream-processing-service.main" />
       </profile>
     </annotationProcessing>
     <bytecodeTargetLevel target="21" />
+  </component>
+  <component name="JavacSettings">
+    <option name="ADDITIONAL_OPTIONS_OVERRIDE">
+      <module name="plataforma-streaming-eventos.ingestion-service" options="-parameters" />
+      <module name="plataforma-streaming-eventos.ingestion-service.main" options="-parameters" />
+      <module name="plataforma-streaming-eventos.ingestion-service.test" options="-parameters" />
+      <module name="plataforma-streaming-eventos.notification-service" options="-parameters" />
+      <module name="plataforma-streaming-eventos.notification-service.main" options="-parameters" />
+      <module name="plataforma-streaming-eventos.notification-service.test" options="-parameters" />
+      <module name="plataforma-streaming-eventos.persistence-service" options="-parameters" />
+      <module name="plataforma-streaming-eventos.persistence-service.main" options="-parameters" />
+      <module name="plataforma-streaming-eventos.persistence-service.test" options="-parameters" />
+      <module name="plataforma-streaming-eventos.query-service" options="-parameters" />
+      <module name="plataforma-streaming-eventos.query-service.main" options="-parameters" />
+      <module name="plataforma-streaming-eventos.query-service.test" options="-parameters" />
+      <module name="plataforma-streaming-eventos.stream-processing-service" options="-parameters" />
+      <module name="plataforma-streaming-eventos.stream-processing-service.main" options="-parameters" />
+      <module name="plataforma-streaming-eventos.stream-processing-service.test" options="-parameters" />
+    </option>
   </component>
 </project>

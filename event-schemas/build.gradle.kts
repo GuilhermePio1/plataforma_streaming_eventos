@@ -9,13 +9,6 @@ contracts {
     baseClassForTests.set("com.streaming.events.contract.BaseContractTest")
 }
 
-dependencyManagement {
-    imports {
-        mavenBom("org.springframework.boot:spring-boot-dependencies:${libs.versions.springBoot.get()}")
-        mavenBom("org.springframework.cloud:spring-cloud-dependencies:${libs.versions.springCloud.get()}")
-    }
-}
-
 dependencies {
     // Bean validation para validar os contratos de entrada
     implementation(libs.spring.boot.starter.validation)
