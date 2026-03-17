@@ -36,7 +36,7 @@ hs_err_pid*
 # =========================
 .env
 .env.*
-*.env
+!.env.example
 application-local.yml
 application-local.properties
 secrets/
@@ -52,3 +52,9 @@ docker/data/
 /tmp/kafka-streams/
 kafka-streams/
 state-store/
+
+# =========================
+# Dados de Monitoramento
+# =========================
+monitoring/grafana/data/
+monitoring/prometheus/data/

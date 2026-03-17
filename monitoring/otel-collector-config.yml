@@ -1,0 +1,67 @@
+# ============================================================
+# OpenTelemetry Collector - Configuração
+# Plataforma de Streaming de Eventos
+# ============================================================
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  batch:
+    timeout: 5s
+    send_batch_size: 1024
+    send_batch_max_size: 2048
+
+  memory_limiter:
+    check_interval: 5s
+    limit_mib: 512
+    spike_limit_mib: 128
+
+  resource:
+    attributes:
+      - key: environment
+        value: development
+        action: upsert
+
+exporters:
+  # [NOVO] Exportador OTLP gRPC apontando para o Jaeger
+  otlp/jaeger:
+    endpoint: "jaeger:4317"
+    tls:
+      insecure: true # Necessário para ambiente local sem certificados SSL
+
+  # [NOVO] Exportador HTTP apontando para a API do Loki
+  loki:
+    endpoint: "http://loki:3100/loki/api/v1/push"
+
+  # Logs de debug mantidos para troubleshooting no console do Collector
+  debug:
+    verbosity: basic
+
+extensions:
+  health_check:
+    endpoint: 0.0.0.0:13133
+
+service:
+  extensions: [health_check]
+  pipelines:
+
+    # Pipeline de Traces agora envia para o Jaeger
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, batch, resource]
+      exporters: [otlp/jaeger, debug]
+
+    # Pipeline de Métricas REMOVIDO para evitar duplicidade
+    # com o Spring Boot Actuator configurado no prometheus.yml
+
+    # Pipeline de Logs agora envia para o Loki
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, batch, resource]
+      exporters: [loki, debug]

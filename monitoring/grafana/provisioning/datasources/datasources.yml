@@ -1,0 +1,54 @@
+# ============================================================
+# Grafana - Provisioning de Datasources
+# Plataforma de Streaming de Eventos
+# ============================================================
+
+apiVersion: 1
+
+datasources:
+  # ----------------------------------------------------------
+  # 1. MÉTRICAS (Prometheus)
+  # ----------------------------------------------------------
+  - name: Prometheus
+    type: prometheus
+    uid: prometheus-ds # UID fixo facilita a portabilidade de dashboards
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    editable: false
+    jsonData:
+      timeInterval: "15s"
+      httpMethod: POST
+
+  # ----------------------------------------------------------
+  # 2. LOGS ESTRUTURADOS (Loki)
+  # ----------------------------------------------------------
+  - name: Loki
+    type: loki
+    uid: loki-ds
+    access: proxy
+    url: http://loki:3100
+    editable: false
+    jsonData:
+      maxLines: 1000
+      # MAGIA DA OBSERVABILIDADE: Correlação Log -> Trace
+      # O Grafana vai ler o JSON do log, procurar pelo 'trace_id' e criar
+      # um botão clicável que abre o Jaeger exatamente na requisição que gerou o log.
+      derivedFields:
+        - datasourceUid: jaeger-ds
+          matcherRegex: '"trace_id":"(\w+)"'
+          name: TraceID
+          url: '$${__value.raw}'
+
+  # ----------------------------------------------------------
+  # 3. RASTREAMENTO DISTRIBUÍDO (Jaeger)
+  # ----------------------------------------------------------
+  - name: Jaeger
+    type: jaeger
+    uid: jaeger-ds
+    access: proxy
+    url: http://jaeger:16686
+    editable: false
+    jsonData:
+      nodeGraph:
+        enabled: true # Habilita a visualização gráfica da topologia de serviços

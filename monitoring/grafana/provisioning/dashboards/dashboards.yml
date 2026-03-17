@@ -1,0 +1,27 @@
+# ============================================================
+# Grafana - Provisioning de Dashboards
+# Plataforma de Streaming de Eventos
+# ============================================================
+
+apiVersion: 1
+
+providers:
+  - name: "Streaming Platform"
+    orgId: 1
+    folder: "Streaming Platform"
+    type: file
+
+    # Previne que alguém delete acidentalmente um dashboard provisionado por código
+    disableDeletion: true
+
+    # Mantido como TRUE para facilitar o desenvolvimento local.
+    # Em ambientes produtivos (ex: Helm Charts/K8s), altere para FALSE para forçar o GitOps.
+    editable: true
+
+    options:
+      path: /var/lib/grafana/dashboards
+
+      # [NOVO] Alterado para true.
+      # Assim, se você criar pastas como /dashboards/infra ou /dashboards/services
+      # no seu repositório, o Grafana replicará essa organização visualmente na UI.
+      foldersFromFilesStructure: true

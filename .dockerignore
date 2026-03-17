@@ -1,0 +1,44 @@
+# Git
+.git
+.gitignore
+
+# IDE
+.idea
+.vscode
+*.iml
+
+# Build output (será gerado dentro do container)
+**/build/
+**/out/
+**/bin/
+
+# Docker
+.docker-data/
+docker/data/
+
+# Docs
+*.docx
+*.md
+
+# Ambiente local
+.env
+.env.*
+
+# Logs gerados por execuções locais (Spring Boot, Kafka, etc.)
+*.log
+**/logs/
+
+# Estado local do Kafka Streams (caso rode a aplicação via IDE)
+state-store/
+/tmp/kafka-streams/
+
+# Monitoring data
+monitoring/grafana/data/
+monitoring/prometheus/data/
+
+# Gradle cache local (o container baixa suas próprias deps)
+.gradle/
+
+# OS
+.DS_Store
+Thumbs.db

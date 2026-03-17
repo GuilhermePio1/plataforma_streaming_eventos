@@ -1,0 +1,484 @@
+# ============================================================
+# Docker Compose - Plataforma de Streaming de Eventos
+# Ambiente de Desenvolvimento Local
+# ============================================================
+# Uso: docker compose up -d
+# Parar: docker compose down
+# Limpar volumes: docker compose down -v
+# ============================================================
+
+services:
+
+  # ==========================================================
+  # INFRAESTRUTURA DE MENSAGERIA
+  # ==========================================================
+
+  kafka:
+    image: apache/kafka:4.2.0
+    container_name: streaming-kafka
+    hostname: kafka
+    ports:
+      - "9092:9092"
+      - "9093:9093"
+    environment:
+      # KRaft mode (sem Zookeeper)
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9094
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+
+      # Listeners
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,EXTERNAL://0.0.0.0:9093,CONTROLLER://0.0.0.0:9094
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,EXTERNAL://localhost:9093
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT,CONTROLLER:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+
+      # Configurações do cluster
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_DEFAULT_REPLICATION_FACTOR: 1
+      KAFKA_MIN_INSYNC_REPLICAS: 1
+
+      # Configurações de log
+      KAFKA_LOG_RETENTION_HOURS: 168
+      KAFKA_LOG_SEGMENT_BYTES: 1073741824
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+
+      # Cluster ID para KRaft
+      CLUSTER_ID: ${KAFKA_CLUSTER_ID}
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+    networks:
+      - streaming-network
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 > /dev/null 2>&1"]
+      interval: 15s
+      timeout: 10s
+      start_period: 30s
+      retries: 5
+
+  kafka-init:
+    image: apache/kafka:4.2.0
+    container_name: streaming-kafka-init
+    depends_on:
+      kafka:
+        condition: service_healthy
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        echo "Criando tópicos Kafka..."
+        
+        /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists \
+          --topic events.raw.ingest --partitions 12 --replication-factor 1
+        
+        /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists \
+          --topic events.validated --partitions 12 --replication-factor 1
+        
+        /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists \
+          --topic events.processed --partitions 12 --replication-factor 1
+        
+        /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists \
+          --topic events.alerts --partitions 6 --replication-factor 1
+        
+        /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists \
+          --topic events.dlq --partitions 3 --replication-factor 1
+        
+        echo "Tópicos criados com sucesso!"
+        /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --list
+    networks:
+      - streaming-network
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: streaming-kafka-ui
+    ports:
+      - "8090:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: streaming-local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+    depends_on:
+      kafka:
+        condition: service_healthy
+    networks:
+      - streaming-network
+
+  # [NOVO] Exporter para métricas do Kafka (Lag de partições, tópicos, etc)
+  kafka-exporter:
+    image: danielqsj/kafka-exporter:latest
+    container_name: streaming-kafka-exporter
+    command: [ "--kafka.server=kafka:9092" ]
+    ports:
+      - "9308:9308"
+    depends_on:
+      kafka:
+        condition: service_healthy
+    networks:
+      - streaming-network
+
+  # ==========================================================
+  # BANCO DE DADOS
+  # ==========================================================
+  postgresql:
+    image: postgres:18.3-alpine
+    container_name: streaming-postgresql
+    hostname: postgresql
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-streaming}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-streaming123}
+      POSTGRES_DB: ${POSTGRES_DB:-streaming_events}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./infra/postgres/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    networks:
+      - streaming-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-streaming} -d ${POSTGRES_DB:-streaming_events}"]
+      interval: 10s
+      timeout: 5s
+      start_period: 20s
+      retries: 5
+
+  # [NOVO] Exporter para métricas do PostgreSQL (Conexões, Locks, Queries)
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:v0.19.1
+    container_name: streaming-postgres-exporter
+    environment:
+      DATA_SOURCE_NAME: "postgresql://${POSTGRES_USER:-streaming}:${POSTGRES_PASSWORD:-streaming123}@postgresql:5432/${POSTGRES_DB:-streaming_events}?sslmode=disable"
+    ports:
+      - "9187:9187"
+    depends_on:
+      postgresql:
+        condition: service_healthy
+    networks:
+      - streaming-network
+
+  # ==========================================================
+  # CACHE
+  # ==========================================================
+
+  redis:
+    image: redis:8.6.1-alpine
+    container_name: streaming-redis
+    hostname: redis
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis-data:/data
+    networks:
+      - streaming-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      start_period: 10s
+      retries: 5
+
+  # [NOVO] Exporter para métricas do Redis (Hits/Misses, Memória)
+  redis-exporter:
+    image: oliver006/redis_exporter:v1.82.0
+    container_name: streaming-redis-exporter
+    environment:
+      REDIS_ADDR: "redis://redis:6379"
+    ports:
+      - "9121:9121"
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - streaming-network
+
+  # ==========================================================
+  # MICROSSERVIÇOS
+  # ==========================================================
+
+  ingestion-service:
+    build:
+      context: .
+      dockerfile: ingestion-service/Dockerfile
+    container_name: streaming-ingestion
+    hostname: ingestion-service
+    ports:
+      - "8080:8080"
+      - "8180:8081"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_KAFKA_BOOTSTRAP-SERVERS: kafka:9092
+      SERVER_PORT: 8080
+      MANAGEMENT_SERVER_PORT: 8081
+      OTEL_SERVICE_NAME: ingestion-service
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      LOGGING_LEVEL_ROOT: ${APP_LOG_LEVEL:-INFO}
+    deploy:
+      resources:
+        limits:
+          memory: 512M # Evita que um único serviço engula a RAM local
+    depends_on:
+      kafka:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+    networks:
+      - streaming-network
+    restart: on-failure
+    profiles:
+      - services
+
+  stream-processing-service:
+    build:
+      context: .
+      dockerfile: stream-processing-service/Dockerfile
+    container_name: streaming-processor
+    hostname: stream-processing-service
+    ports:
+      - "8082:8080"
+      - "8182:8081"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_KAFKA_BOOTSTRAP-SERVERS: kafka:9092
+      KAFKA_STREAMS_STATE_DIR: /app/state-store
+      SERVER_PORT: 8080
+      MANAGEMENT_SERVER_PORT: 8081
+      OTEL_SERVICE_NAME: stream-processing-service
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      LOGGING_LEVEL_ROOT: ${APP_LOG_LEVEL:-INFO}
+    deploy:
+      resources:
+        limits:
+          memory: 768M # O Kafka Streams costuma usar um pouco mais de memória off-heap com o RocksDB
+    volumes:
+      - streams-state:/app/state-store
+    depends_on:
+      kafka:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+    networks:
+      - streaming-network
+    restart: on-failure
+    profiles:
+      - services
+
+  persistence-service:
+    build:
+      context: .
+      dockerfile: persistence-service/Dockerfile
+    container_name: streaming-persistence
+    hostname: persistence-service
+    ports:
+      - "8083:8080"
+      - "8183:8081"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_KAFKA_BOOTSTRAP-SERVERS: kafka:9092
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgresql:5432/${POSTGRES_DB:-streaming_events}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-streaming}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-streaming123}
+      SERVER_PORT: 8080
+      MANAGEMENT_SERVER_PORT: 8081
+      OTEL_SERVICE_NAME: persistence-service
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      LOGGING_LEVEL_ROOT: ${APP_LOG_LEVEL:-INFO}
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    depends_on:
+      kafka:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+      postgresql:
+        condition: service_healthy
+    networks:
+      - streaming-network
+    restart: on-failure
+    profiles:
+      - services
+
+  query-service:
+    build:
+      context: .
+      dockerfile: query-service/Dockerfile
+    container_name: streaming-query
+    hostname: query-service
+    ports:
+      - "8084:8080"
+      - "8184:8081"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_KAFKA_BOOTSTRAP-SERVERS: kafka:9092
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgresql:5432/${POSTGRES_DB:-streaming_events}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-streaming}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-streaming123}
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      SERVER_PORT: 8080
+      MANAGEMENT_SERVER_PORT: 8081
+      OTEL_SERVICE_NAME: query-service
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      LOGGING_LEVEL_ROOT: ${APP_LOG_LEVEL:-INFO}
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    depends_on:
+      kafka:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+      postgresql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - streaming-network
+    restart: on-failure
+    profiles:
+      - services
+
+  notification-service:
+    build:
+      context: .
+      dockerfile: notification-service/Dockerfile
+    container_name: streaming-notification
+    hostname: notification-service
+    ports:
+      - "8085:8080"
+      - "8185:8081"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_KAFKA_BOOTSTRAP-SERVERS: kafka:9092
+      SERVER_PORT: 8080
+      MANAGEMENT_SERVER_PORT: 8081
+      OTEL_SERVICE_NAME: notification-service
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      LOGGING_LEVEL_ROOT: ${APP_LOG_LEVEL:-INFO}
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    depends_on:
+      kafka:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+    networks:
+      - streaming-network
+    restart: on-failure
+    profiles:
+      - services
+
+  # ==========================================================
+  # OBSERVABILIDADE
+  # ==========================================================
+
+  jaeger:
+    image: jaegertracing/all-in-one:1.76.0
+    container_name: streaming-jaeger
+    hostname: jaeger
+    ports:
+      - "16686:16686" # Interface UI do Jaeger
+      - "4317"        # Recebe traces do OTEL Collector via gRPC
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+    networks:
+      - streaming-network
+
+  loki:
+    image: grafana/loki:3.5.12
+    container_name: streaming-loki
+    hostname: loki
+    ports:
+      - "3100:3100"
+    command: -config.file=/etc/loki/local-config.yaml
+    networks:
+      - streaming-network
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.147.0
+    container_name: streaming-otel-collector
+    hostname: otel-collector
+    ports:
+      - "4317:4317" # gRPC OTLP
+      - "4318:4318" # HTTP OTLP
+      - "8888:8888" # Métricas do próprio collector
+    volumes:
+      - ./monitoring/otel-collector-config.yml:/etc/otelcol-contrib/config.yaml:ro
+    networks:
+      - streaming-network
+    depends_on:
+      - prometheus
+      - jaeger # Adicionado
+      - loki   # Adicionado
+
+  prometheus:
+    image: prom/prometheus:v3.10.0
+    container_name: streaming-prometheus
+    hostname: prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=7d"
+      - "--web.enable-lifecycle"
+    networks:
+      - streaming-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:9090/-/healthy"]
+      interval: 15s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+
+  grafana:
+    image: grafana/grafana:12.3
+    container_name: streaming-grafana
+    hostname: grafana
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/provisioning/dashboards:/var/lib/grafana/dashboards:ro
+    depends_on:
+      prometheus:
+        condition: service_healthy
+    networks:
+      - streaming-network
+
+# ==========================================================
+# VOLUMES PERSISTENTES
+# ==========================================================
+volumes:
+  kafka-data:
+    driver: local
+  postgres_data:
+    driver: local
+  redis-data:
+    driver: local
+  streams-state:
+    driver: local
+  prometheus-data:
+    driver: local
+  grafana-data:
+    driver: local
+
+# ==========================================================
+# REDE
+# ==========================================================
+networks:
+  streaming-network:
+    driver: bridge
+    name: streaming-network
